@@ -1,0 +1,8 @@
+[package]
+name = "transformer"
+version = "0.0.1"
+authors = ["Dmitriy Belyaev <dimabelyaev27@gmail.com>"]
+
+[dependencies]
+opencv = { git = "git://github.com/whitequark/opencv-rust" }
+iron = "*"

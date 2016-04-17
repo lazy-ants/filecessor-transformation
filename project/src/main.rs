@@ -1,3 +1,5 @@
+#[macro_use]
+extern crate lazy_static;
 extern crate opencv;
 extern crate iron;
 extern crate regex;
@@ -17,24 +19,28 @@ use iron::status;
 use regex::*;
 use std::path::Path;
 
+lazy_static! {
+    static ref MEDIA_DIRECTORY: String = get_media_directory();
+}
+
 fn main() {
-    fn handler(req: &mut Request) -> IronResult<Response> {  
-        let regex = Regex::new(r"^transform/(.+)/(.+)\.(jpg|png)$").unwrap();
-    	let directory = "/Users/dmitriybelyaev/Development/rust/transformer/media/";      
-  		match regex.captures(&req.url.path.join("/")) {
-  		    Some(cap) => {
-  		    	let ext = cap.at(3).unwrap();
-  		    	let path = format!("{}{}.{}", directory.to_string(), cap.at(2).unwrap(), ext);
+    fn handler(req: &mut Request) -> IronResult<Response> { 
+        let regex = Regex::new(r"^transform/(.+)/(.+)\.(jpg|png)$").unwrap();   
+        match regex.captures(&req.url.path.join("/")) {
+            Some(cap) => {
+                let ext = cap.at(3).unwrap();
+                let path = format!("{}{}.{}", MEDIA_DIRECTORY.to_string(), cap.at(2).unwrap(), ext);
 
-  		    	if !Path::new(&path).exists() {
-  		    		return Ok(Response::with((iron::status::NotFound, "Image not found")));
-  		    	}
+                if !Path::new(&path).exists() {
+                    return Ok(Response::with((iron::status::NotFound, "Image not found")));
+                }
 
-  		    	return handle_image(cap.at(1).unwrap(), &path, ext);
-  		    },
-  		    None => Ok(Response::with((iron::status::NotFound, "Invalid url"))),
-  		}
+                return handle_image(cap.at(1).unwrap(), &path, ext);
+            },
+            None => Ok(Response::with((iron::status::NotFound, "Invalid url"))),
+        }
     }
+    
     Iron::new(handler).http("0.0.0.0:3000").unwrap();
 }
 
@@ -263,4 +269,14 @@ fn resize(mat: &cv::Mat, size: &cv::Size) -> cv::Mat {
     imgproc::resize(&mat, &mut dest, *size, 0.0, 0.0, imgproc::INTER_LINEAR);
 
     dest
+}
+
+fn get_media_directory() -> String {
+    let key = "MEDIA_DIRECTORY";
+    let value = std::env::var_os(key);
+    if value.is_none() {
+        return "/media/".to_string();
+    }
+    
+    value.unwrap().into_string().unwrap()
 }

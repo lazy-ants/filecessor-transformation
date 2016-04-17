@@ -17,6 +17,7 @@ COPY ./project /tmp/app
 RUN cd /tmp/app && cargo build --release && mv target/release/transformer /usr/bin && rm -rf /tmp/opencv && rm -rf /tmp/app
 
 ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib
+ENV MEDIA_DIRECTORY="/media/"
 
 EXPOSE 3000
 

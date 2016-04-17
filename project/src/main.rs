@@ -7,11 +7,8 @@ use opencv::types::{VectorOfint, VectorOfuchar};
 use opencv::highgui;
 use opencv::imgproc;
 
-use std::io;
 use std::io::prelude::*;
-use std::fs::File;
 use std::option::*;
-use std::fmt;
 
 use iron::prelude::*;
 use iron::mime::Mime;
@@ -21,9 +18,8 @@ use regex::*;
 use std::path::Path;
 
 fn main() {
-    
     fn handler(req: &mut Request) -> IronResult<Response> {  
-        let regex = Regex::new(r"^transform/(.+)/(.+)\.([a-zA-Z]{3, 4})$").unwrap();
+        let regex = Regex::new(r"^transform/(.+)/(.+)\.(jpg|png)$").unwrap();
     	let directory = "/Users/dmitriybelyaev/Development/rust/transformer/media/";      
   		match regex.captures(&req.url.path.join("/")) {
   		    Some(cap) => {
@@ -39,9 +35,7 @@ fn main() {
   		    None => Ok(Response::with((iron::status::NotFound, "Invalid url"))),
   		}
     }
-
     Iron::new(handler).http("0.0.0.0:3000").unwrap();
-    println!("On 3000");
 }
 
 fn handle_image(filters: &str, path: &str, ext: &str) -> IronResult<Response> {
@@ -61,13 +55,18 @@ fn handle_image(filters: &str, path: &str, ext: &str) -> IronResult<Response> {
     let mut buffer = VectorOfuchar::new();
 	let mut mat = highgui::imread(path, highgui::IMREAD_COLOR).unwrap();
 
-	println!("{:?}", operations);
 	for operation in &operations {
 	    mat = operation.apply(&mat);
 	}
 
 	highgui::imencode(&format!(".{}", ext), &mat, &mut buffer, &VectorOfint::new());
-    let content_type = "image/jpeg".parse::<Mime>().unwrap();
+    
+    let content_type = match ext {
+        "jpg" => "image/jpeg",
+        "png" => "image/png",
+        _ => "text/plain"
+    }.parse::<Mime>().unwrap();
+
     Ok(Response::with((content_type, status::Ok, buffer.to_vec())))
 }
 
@@ -99,7 +98,7 @@ trait TransformationTrait {
 impl TransformationTrait for Transformation {
     fn apply(&self, mat: &cv::Mat) -> cv::Mat {
     	match *self {
-    	    Transformation::Resize { height: height, width: width } => {
+    	    Transformation::Resize { height, width } => {
                 let size: cv::Size;
                 if width.is_some() && height.is_some() {
                     size = cv::Size { width: width.unwrap(), height: height.unwrap() };
@@ -110,32 +109,32 @@ impl TransformationTrait for Transformation {
                     return relative_resize_height(&mat, height.unwrap());
                 }
     	    },
-    	    Transformation::Rotate { degrees: degrees } => {
+    	    Transformation::Rotate { degrees } => {
 				let mut dest = cv::Mat::new().unwrap();
-				let mut finalDest = cv::Mat::new().unwrap();
+				let mut final_dest = cv::Mat::new().unwrap();
 			    
 			    match degrees {
 			    	90 => {
 			            cv::transpose(&mat, &mut dest);
-			            cv::flip(&dest, &mut finalDest, 1);
+			            cv::flip(&dest, &mut final_dest, 1);
 
-                        finalDest
+                        final_dest
 			    	},
                     180 => {
-                        cv::flip(&mat, &mut finalDest, -1);
+                        cv::flip(&mat, &mut final_dest, -1);
 
-                        finalDest
+                        final_dest
                     },
 			        270 => {
 			        	cv::transpose(&mat, &mut dest);
-			    		cv::flip(&dest, &mut finalDest, 0);
+			    		cv::flip(&dest, &mut final_dest, 0);
 
-                        finalDest
+                        final_dest
 			        },
                     _ => dest
 			    }
     	    },
-            Transformation::Crop { height: height, width: width } => {
+            Transformation::Crop { height, width } => {
                 let rect: cv::Rect;
                 let resized: cv::Mat;
                 if width > height {
@@ -157,7 +156,7 @@ impl TransformationTrait for Transformation {
                 }
                 return cv::Mat::rect(&resized, rect).unwrap();
             }
-            Transformation::CropCoordinates { x1: x1, y1: y1, x2: x2, y2: y2 } => {
+            Transformation::CropCoordinates { x1, y1, x2, y2 } => {
                 let rect = cv::Rect {
                     x: x1,
                     y: y1,
@@ -175,7 +174,7 @@ fn create_operation(entry: &str) -> Option<Transformation> {
     
     for matcher in &matchers {
         let option = matcher(entry);
-        if (option.is_some()) {
+        if option.is_some() {
             return option; 
         }
     }
@@ -213,7 +212,7 @@ fn match_rotate(entry: &str) -> Option<Transformation> {
 
     regex.captures(entry).and_then(|cap| {
         let degrees = cap.at(1).unwrap().parse::<i32>().unwrap();
-        if (degrees != 90 && degrees != 180 && degrees != 270) {
+        if degrees != 90 && degrees != 180 && degrees != 270 {
             return None;
         }
 
@@ -244,16 +243,16 @@ fn match_crop_coordinates(entry: &str) -> Option<Transformation> {
 }
 
 fn relative_resize_width(mat: &cv::Mat, width: i32) -> cv::Mat {
-    let givenSize = mat.size().unwrap();
-    let height = width * givenSize.height / givenSize.width;
+    let given_size = mat.size().unwrap();
+    let height = width * given_size.height / given_size.width;
     let size = cv::Size { width: width, height: height };
 
     resize(mat, &size)
 }
 
 fn relative_resize_height(mat: &cv::Mat, height: i32) -> cv::Mat {
-    let givenSize = mat.size().unwrap();
-    let width = height * givenSize.width / givenSize.height;
+    let given_size = mat.size().unwrap();
+    let width = height * given_size.width / given_size.height;
     let size = cv::Size { width: width, height: height };
 
     resize(mat, &size)

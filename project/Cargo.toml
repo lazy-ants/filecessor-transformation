@@ -6,3 +6,4 @@ authors = ["Dmitriy Belyaev <dimabelyaev27@gmail.com>"]
 [dependencies]
 opencv = { git = "git://github.com/whitequark/opencv-rust" }
 iron = "*"
+regex = "0.1"

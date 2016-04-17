@@ -21,9 +21,10 @@ use regex::*;
 use std::path::Path;
 
 fn main() {
-    fn handler(req: &mut Request) -> IronResult<Response> {        
-  		let directory = "/Users/dmitriybelyaev/Development/rust/transformer/media/";
-  		let regex = Regex::new(r"^transform/(.+)/(.+)\.([a-zA-Z]{3, 4})$").unwrap();
+    
+    fn handler(req: &mut Request) -> IronResult<Response> {  
+        let regex = Regex::new(r"^transform/(.+)/(.+)\.([a-zA-Z]{3, 4})$").unwrap();
+    	let directory = "/Users/dmitriybelyaev/Development/rust/transformer/media/";      
   		match regex.captures(&req.url.path.join("/")) {
   		    Some(cap) => {
   		    	let ext = cap.at(3).unwrap();
@@ -58,16 +59,14 @@ fn handle_image(filters: &str, path: &str, ext: &str) -> IronResult<Response> {
     }
 
     let mut buffer = VectorOfuchar::new();
-	let mat = highgui::imread(path, highgui::IMREAD_COLOR).unwrap();
-	
-	let mut dest = cv::Mat::new().unwrap();
+	let mut mat = highgui::imread(path, highgui::IMREAD_COLOR).unwrap();
 
 	println!("{:?}", operations);
 	for operation in &operations {
-	    dest = operation.apply(&mat);
+	    mat = operation.apply(&mat);
 	}
 
-	highgui::imencode(".jpg", &dest, &mut buffer, &VectorOfint::new());
+	highgui::imencode(".jpg", &mat, &mut buffer, &VectorOfint::new());
     let content_type = "image/jpeg".parse::<Mime>().unwrap();
     Ok(Response::with((content_type, status::Ok, buffer.into_vec())))
 }
@@ -91,7 +90,21 @@ impl TransformationTrait for Transformation {
     fn apply(&self, mat: &cv::Mat) -> cv::Mat {
     	match *self {
     	    Transformation::Resize { height: height, width: width } => {
-    	    	let size = cv::Size { width: width.unwrap(), height: height.unwrap() };
+                let size: cv::Size;
+                if width.is_some() && height.is_some() {
+                    size = cv::Size { width: width.unwrap(), height: height.unwrap() };
+                } else if width.is_some() {
+                    let finalWidth = width.unwrap();
+                    let givenSize = mat.size().unwrap();
+                    let finalHeight = finalWidth * givenSize.height / givenSize.width;
+                    size = cv::Size { width: finalWidth, height: finalHeight };
+                } else {
+                    let finalHeight = height.unwrap();
+                    let givenSize = mat.size().unwrap();
+                    let finalWidth = finalHeight * givenSize.width / givenSize.height;
+                    size = cv::Size { width: finalWidth, height: finalHeight };
+                }
+    	    	
     	    	let mut dest = cv::Mat::new().unwrap();
 
 				imgproc::resize(&mat, &mut dest, size, 0.0, 0.0, imgproc::INTER_LINEAR);
@@ -99,12 +112,29 @@ impl TransformationTrait for Transformation {
 				dest
     	    },
     	    Transformation::Rotate { degrees: degrees } => {
-				let size = cv::Size { width: 200, height: 200 };
-    	    	let mut dest = cv::Mat::new().unwrap();
+				let mut dest = cv::Mat::new().unwrap();
+				let mut finalDest = cv::Mat::new().unwrap();
+			    
+			    match degrees {
+			    	90 => {
+			            cv::transpose(&mat, &mut dest);
+			            cv::flip(&dest, &mut finalDest, 1);
 
-				imgproc::resize(&mat, &mut dest, size, 0.0, 0.0, imgproc::INTER_LINEAR);
+                        finalDest
+			    	},
+                    180 => {
+                        cv::flip(&mat, &mut finalDest, -1);
 
-				dest
+                        finalDest
+                    },
+			        270 => {
+			        	cv::transpose(&mat, &mut dest);
+			    		cv::flip(&dest, &mut finalDest, 0);
+
+                        finalDest
+			        },
+                    _ => dest
+			    }
     	    },
     	}
     }
@@ -124,18 +154,41 @@ fn create_operation(entry: &str) -> Option<Transformation> {
 }
 
 fn match_resize(entry: &str) -> Option<Transformation> {
-    let regex = Regex::new(r"resize_(\d+)x(\d+)").unwrap();
+    let regex = Regex::new(r"resize_(\d+|-)x(\d+|-)").unwrap();
+    
+    regex.captures(entry).and_then(|cap: Captures| {
+        let width = cap.at(1).unwrap();
+        let height = cap.at(2).unwrap();
+        if width == "-" && height == "-" {
+            return None;
+        }
 
-    regex.captures(entry).and_then(|cap: Captures| Option::Some(Transformation::Resize {
-        width: Some(cap.at(1).unwrap().parse::<i32>().unwrap()),
-        height: Some(cap.at(2).unwrap().parse::<i32>().unwrap())
-    }))
+        Option::Some(Transformation::Resize {
+            width: if width == "-" {
+                None 
+            } else  {
+                Some(width.parse::<i32>().unwrap())
+            },
+            height: if height == "-" {
+                None
+            } else { 
+                Some(height.parse::<i32>().unwrap())
+            },
+        })
+    })
 }
 
 fn match_rotate(entry: &str) -> Option<Transformation> {
     let regex = Regex::new(r"rotate_(\d+)").unwrap();
 
-    regex.captures(entry).and_then(|cap: Captures| Option::Some(Transformation::Rotate {
-        degrees: cap.at(1).unwrap().parse::<i32>().unwrap(),
-    }))
+    regex.captures(entry).and_then(|cap: Captures| {
+        let degrees = cap.at(1).unwrap().parse::<i32>().unwrap();
+        if (degrees != 90 && degrees != 180 && degrees != 270) {
+            return None;
+        }
+
+        Option::Some(Transformation::Rotate {
+            degrees: degrees,
+        })   
+    })
 }

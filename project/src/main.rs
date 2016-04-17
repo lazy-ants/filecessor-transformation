@@ -53,7 +53,7 @@ fn handle_image(filters: &str, path: &str, ext: &str) -> IronResult<Response> {
                 operations.push(operation);
             },
             None => {
-                return Ok(Response::with((iron::status::BadRequest,  format!("Invalid transformation url \"{}\"", entry))));
+                return Ok(Response::with((iron::status::BadRequest,  format!("Invalid transformation step \"{}\"", entry))));
             }
         }
     }
@@ -66,7 +66,7 @@ fn handle_image(filters: &str, path: &str, ext: &str) -> IronResult<Response> {
 	    mat = operation.apply(&mat);
 	}
 
-	highgui::imencode(".jpg", &mat, &mut buffer, &VectorOfint::new());
+	highgui::imencode(&format!(".{}", ext), &mat, &mut buffer, &VectorOfint::new());
     let content_type = "image/jpeg".parse::<Mime>().unwrap();
     Ok(Response::with((content_type, status::Ok, buffer.to_vec())))
 }
@@ -76,6 +76,16 @@ enum Transformation {
     Resize {
     	height: Option<i32>,
     	width: Option<i32>
+    },
+    Crop {
+        height: i32,
+        width: i32
+    },
+    CropCoordinates {
+        x1: i32,
+        y1: i32,
+        x2: i32,
+        y2: i32
     },
     Rotate {
     	degrees: i32
@@ -93,23 +103,12 @@ impl TransformationTrait for Transformation {
                 let size: cv::Size;
                 if width.is_some() && height.is_some() {
                     size = cv::Size { width: width.unwrap(), height: height.unwrap() };
+                    return resize(&mat, &size);
                 } else if width.is_some() {
-                    let finalWidth = width.unwrap();
-                    let givenSize = mat.size().unwrap();
-                    let finalHeight = finalWidth * givenSize.height / givenSize.width;
-                    size = cv::Size { width: finalWidth, height: finalHeight };
+                    return relative_resize_width(&mat, width.unwrap());
                 } else {
-                    let finalHeight = height.unwrap();
-                    let givenSize = mat.size().unwrap();
-                    let finalWidth = finalHeight * givenSize.width / givenSize.height;
-                    size = cv::Size { width: finalWidth, height: finalHeight };
+                    return relative_resize_height(&mat, height.unwrap());
                 }
-    	    	
-    	    	let mut dest = cv::Mat::new().unwrap();
-
-				imgproc::resize(&mat, &mut dest, size, 0.0, 0.0, imgproc::INTER_LINEAR);
-
-				dest
     	    },
     	    Transformation::Rotate { degrees: degrees } => {
 				let mut dest = cv::Mat::new().unwrap();
@@ -136,12 +135,43 @@ impl TransformationTrait for Transformation {
                     _ => dest
 			    }
     	    },
+            Transformation::Crop { height: height, width: width } => {
+                let rect: cv::Rect;
+                let resized: cv::Mat;
+                if width > height {
+                    resized = relative_resize_width(&mat, width);
+                    rect = cv::Rect {
+                        x: 0,
+                        y: (height - resized.size().unwrap().height).abs() / 2,
+                        width: width,
+                        height: height
+                    };
+                } else {
+                    resized = relative_resize_height(&mat, height);
+                    rect = cv::Rect {
+                        x: (width - resized.size().unwrap().width).abs() / 2,
+                        y: 0,
+                        width: width,
+                        height: height
+                    };
+                }
+                return cv::Mat::rect(&resized, rect).unwrap();
+            }
+            Transformation::CropCoordinates { x1: x1, y1: y1, x2: x2, y2: y2 } => {
+                let rect = cv::Rect {
+                    x: x1,
+                    y: y1,
+                    width: (x2 - x1).abs(),
+                    height: (y2 - y1).abs()
+                };
+                return cv::Mat::rect(&mat, rect).unwrap();
+            }
     	}
     }
 }
 
 fn create_operation(entry: &str) -> Option<Transformation> {
-    let matchers:Vec<fn(&str) -> Option<Transformation>> = vec![match_resize, match_rotate];
+    let matchers:Vec<fn(&str) -> Option<Transformation>> = vec![match_resize, match_rotate, match_crop, match_crop_coordinates];
     
     for matcher in &matchers {
         let option = matcher(entry);
@@ -156,7 +186,7 @@ fn create_operation(entry: &str) -> Option<Transformation> {
 fn match_resize(entry: &str) -> Option<Transformation> {
     let regex = Regex::new(r"resize_(\d+|-)x(\d+|-)").unwrap();
     
-    regex.captures(entry).and_then(|cap: Captures| {
+    regex.captures(entry).and_then(|cap| {
         let width = cap.at(1).unwrap();
         let height = cap.at(2).unwrap();
         if width == "-" && height == "-" {
@@ -181,7 +211,7 @@ fn match_resize(entry: &str) -> Option<Transformation> {
 fn match_rotate(entry: &str) -> Option<Transformation> {
     let regex = Regex::new(r"rotate_(\d+)").unwrap();
 
-    regex.captures(entry).and_then(|cap: Captures| {
+    regex.captures(entry).and_then(|cap| {
         let degrees = cap.at(1).unwrap().parse::<i32>().unwrap();
         if (degrees != 90 && degrees != 180 && degrees != 270) {
             return None;
@@ -191,4 +221,47 @@ fn match_rotate(entry: &str) -> Option<Transformation> {
             degrees: degrees,
         })   
     })
+}
+
+fn match_crop(entry: &str) -> Option<Transformation> {
+    let regex = Regex::new(r"crop_(\d+)x(\d+)").unwrap();
+
+    regex.captures(entry).and_then(|cap| Option::Some(Transformation::Crop {
+        width: cap.at(1).unwrap().parse::<i32>().unwrap(),
+        height: cap.at(2).unwrap().parse::<i32>().unwrap()
+    }))
+}
+
+fn match_crop_coordinates(entry: &str) -> Option<Transformation> {
+    let regex = Regex::new(r"crop_coordinates_(\d+)x(\d+)_(\d+)x(\d+)").unwrap();
+
+    regex.captures(entry).and_then(|cap| Option::Some(Transformation::CropCoordinates {
+        x1: cap.at(1).unwrap().parse::<i32>().unwrap(),
+        y1: cap.at(2).unwrap().parse::<i32>().unwrap(),
+        x2: cap.at(3).unwrap().parse::<i32>().unwrap(),
+        y2: cap.at(4).unwrap().parse::<i32>().unwrap(),
+    }))
+}
+
+fn relative_resize_width(mat: &cv::Mat, width: i32) -> cv::Mat {
+    let givenSize = mat.size().unwrap();
+    let height = width * givenSize.height / givenSize.width;
+    let size = cv::Size { width: width, height: height };
+
+    resize(mat, &size)
+}
+
+fn relative_resize_height(mat: &cv::Mat, height: i32) -> cv::Mat {
+    let givenSize = mat.size().unwrap();
+    let width = height * givenSize.width / givenSize.height;
+    let size = cv::Size { width: width, height: height };
+
+    resize(mat, &size)
+}
+
+fn resize(mat: &cv::Mat, size: &cv::Size) -> cv::Mat {
+    let mut dest = cv::Mat::new().unwrap();
+    imgproc::resize(&mat, &mut dest, *size, 0.0, 0.0, imgproc::INTER_LINEAR);
+
+    dest
 }

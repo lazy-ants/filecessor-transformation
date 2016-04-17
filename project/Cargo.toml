@@ -4,6 +4,6 @@ version = "0.0.1"
 authors = ["Dmitriy Belyaev <dimabelyaev27@gmail.com>"]
 
 [dependencies]
-opencv = { git = "git://github.com/whitequark/opencv-rust" }
+opencv = { git = "git://github.com/kali/opencv-rust" }
 iron = "*"
 regex = "0.1"

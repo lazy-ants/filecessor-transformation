@@ -3,7 +3,7 @@ extern crate iron;
 extern crate regex;
 
 use opencv::core as cv;
-use opencv::sys::types::{VectorOfint, VectorOfuchar};
+use opencv::types::{VectorOfint, VectorOfuchar};
 use opencv::highgui;
 use opencv::imgproc;
 
@@ -68,7 +68,7 @@ fn handle_image(filters: &str, path: &str, ext: &str) -> IronResult<Response> {
 
 	highgui::imencode(".jpg", &mat, &mut buffer, &VectorOfint::new());
     let content_type = "image/jpeg".parse::<Mime>().unwrap();
-    Ok(Response::with((content_type, status::Ok, buffer.into_vec())))
+    Ok(Response::with((content_type, status::Ok, buffer.to_vec())))
 }
 
 #[derive(Debug)]

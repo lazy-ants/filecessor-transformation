@@ -44,7 +44,7 @@ fn main() {
 }
 
 fn handle_image(filters: &str, path: &str, ext: &str) -> IronResult<Response> {
-	let splitted: Vec<&str> = filters.split("+").collect();
+    let splitted: Vec<&str> = filters.split("+").collect();
     let mut operations: Vec<Transformation> = Vec::new();
     for entry in &splitted {
         match create_operation(entry) {
@@ -58,13 +58,13 @@ fn handle_image(filters: &str, path: &str, ext: &str) -> IronResult<Response> {
     }
 
     let mut buffer = VectorOfuchar::new();
-	let mut mat = highgui::imread(path, highgui::IMREAD_COLOR).unwrap();
+    let mut mat = highgui::imread(path, highgui::IMREAD_COLOR).unwrap();
 
-	for operation in &operations {
-	    mat = operation.apply(&mat);
-	}
+    for operation in &operations {
+        mat = operation.apply(&mat);
+    }
 
-	highgui::imencode(&format!(".{}", ext), &mat, &mut buffer, &VectorOfint::new());
+    highgui::imencode(&format!(".{}", ext), &mat, &mut buffer, &VectorOfint::new());
     
     let content_type = match ext {
         "jpg" => "image/jpeg",
@@ -78,8 +78,8 @@ fn handle_image(filters: &str, path: &str, ext: &str) -> IronResult<Response> {
 #[derive(Debug)]
 enum Transformation {
     Resize {
-    	height: Option<i32>,
-    	width: Option<i32>
+        height: Option<i32>,
+        width: Option<i32>
     },
     Crop {
         height: i32,
@@ -92,7 +92,7 @@ enum Transformation {
         y2: i32
     },
     Rotate {
-    	degrees: i32
+        degrees: i32
     }
 }
 
@@ -102,8 +102,8 @@ trait TransformationTrait {
 
 impl TransformationTrait for Transformation {
     fn apply(&self, mat: &cv::Mat) -> cv::Mat {
-    	match *self {
-    	    Transformation::Resize { height, width } => {
+        match *self {
+            Transformation::Resize { height, width } => {
                 let size: cv::Size;
                 if width.is_some() && height.is_some() {
                     size = cv::Size { width: width.unwrap(), height: height.unwrap() };
@@ -113,13 +113,13 @@ impl TransformationTrait for Transformation {
                 } else {
                     return relative_resize_height(&mat, height.unwrap());
                 }
-    	    },
+            },
             Transformation::Rotate { degrees } => {
-            	let mut dest = cv::Mat::new().unwrap();
-            	let mut final_dest = cv::Mat::new().unwrap();
+                let mut dest = cv::Mat::new().unwrap();
+                let mut final_dest = cv::Mat::new().unwrap();
                 
                 match degrees {
-                	90 => {
+                    90 => {
                         cv::transpose(&mat, &mut dest);
                         cv::flip(&dest, &mut final_dest, 1);
 
@@ -131,7 +131,7 @@ impl TransformationTrait for Transformation {
                         final_dest
                     },
                     270 => {
-                    	cv::transpose(&mat, &mut dest);
+                        cv::transpose(&mat, &mut dest);
                         cv::flip(&dest, &mut final_dest, 0);
 
                         final_dest
@@ -170,7 +170,7 @@ impl TransformationTrait for Transformation {
                 };
                 return cv::Mat::rect(&mat, rect).unwrap();
             }
-    	}
+        }
     }
 }
 

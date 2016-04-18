@@ -30,7 +30,6 @@ fn main() {
             Some(cap) => {
                 let ext = cap.at(3).unwrap();
                 let path = format!("{}{}.{}", MEDIA_DIRECTORY.to_string(), cap.at(2).unwrap(), ext);
-
                 if !Path::new(&path).exists() {
                     return Ok(Response::with((iron::status::NotFound, "Image not found")));
                 }
@@ -115,31 +114,31 @@ impl TransformationTrait for Transformation {
                     return relative_resize_height(&mat, height.unwrap());
                 }
     	    },
-    	    Transformation::Rotate { degrees } => {
-				let mut dest = cv::Mat::new().unwrap();
-				let mut final_dest = cv::Mat::new().unwrap();
-			    
-			    match degrees {
-			    	90 => {
-			            cv::transpose(&mat, &mut dest);
-			            cv::flip(&dest, &mut final_dest, 1);
+            Transformation::Rotate { degrees } => {
+            	let mut dest = cv::Mat::new().unwrap();
+            	let mut final_dest = cv::Mat::new().unwrap();
+                
+                match degrees {
+                	90 => {
+                        cv::transpose(&mat, &mut dest);
+                        cv::flip(&dest, &mut final_dest, 1);
 
                         final_dest
-			    	},
+                    },
                     180 => {
                         cv::flip(&mat, &mut final_dest, -1);
 
                         final_dest
                     },
-			        270 => {
-			        	cv::transpose(&mat, &mut dest);
-			    		cv::flip(&dest, &mut final_dest, 0);
+                    270 => {
+                    	cv::transpose(&mat, &mut dest);
+                        cv::flip(&dest, &mut final_dest, 0);
 
                         final_dest
-			        },
+                    },
                     _ => dest
-			    }
-    	    },
+                }
+            },
             Transformation::Crop { height, width } => {
                 let rect: cv::Rect;
                 let resized: cv::Mat;

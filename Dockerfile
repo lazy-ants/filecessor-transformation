@@ -1,6 +1,9 @@
 FROM ubuntu:14.04
 
-RUN apt-get update && apt-get -y install curl cmake g++ unzip python pkg-config
+MAINTAINER Dmitriy Belyaev "dimabelyaev27@gmail.com"
+
+RUN echo "deb-src http://httpredir.debian.org/debian unstable main" >> /etc/apt/sources.list && \
+    apt-get update && apt-get -y install curl cmake g++ unzip python pkg-config libgexiv2-dev
 
 RUN mkdir -p /tmp/opencv && cd /tmp/opencv && curl -O http://iweb.dl.sourceforge.net/project/libjpeg-turbo/1.4.2/libjpeg-turbo-official_1.4.2_amd64.deb && \
     dpkg -i libjpeg-turbo-official_1.4.2_amd64.deb

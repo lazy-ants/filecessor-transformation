@@ -3,6 +3,7 @@ extern crate lazy_static;
 extern crate opencv;
 extern crate iron;
 extern crate regex;
+extern crate rexiv2;
 
 use opencv::core as cv;
 use opencv::types::{VectorOfint, VectorOfuchar};
@@ -29,12 +30,14 @@ fn main() {
         match regex.captures(&req.url.path.join("/")) {
             Some(cap) => {
                 let ext = cap.at(3).unwrap();
-                let path = format!("{}{}.{}", MEDIA_DIRECTORY.to_string(), cap.at(2).unwrap(), ext);
-                if !Path::new(&path).exists() {
+                let path_regular = format!("{}regular/{}.{}", MEDIA_DIRECTORY.to_string(), cap.at(2).unwrap(), ext);
+                let path_original = format!("{}original/{}.{}", MEDIA_DIRECTORY.to_string(), cap.at(2).unwrap(), ext);
+
+                if !Path::new(&path_original).exists() {
                     return Ok(Response::with((iron::status::NotFound, "Image not found")));
                 }
 
-                return handle_image(cap.at(1).unwrap(), &path, ext);
+                return handle_image(cap.at(1).unwrap(), &path_original, &path_regular, ext);
             },
             None => Ok(Response::with((iron::status::NotFound, "Invalid url"))),
         }
@@ -43,7 +46,7 @@ fn main() {
     Iron::new(handler).http("0.0.0.0:3000").unwrap();
 }
 
-fn handle_image(filters: &str, path: &str, ext: &str) -> IronResult<Response> {
+fn handle_image(filters: &str, path_original: &str, path_regular: &str, ext: &str) -> IronResult<Response> {
     let splitted: Vec<&str> = filters.split("+").collect();
     let mut operations: Vec<Transformation> = Vec::new();
     for entry in &splitted {
@@ -55,6 +58,13 @@ fn handle_image(filters: &str, path: &str, ext: &str) -> IronResult<Response> {
                 return Ok(Response::with((iron::status::BadRequest,  format!("Invalid transformation step \"{}\"", entry))));
             }
         }
+    }
+
+    let path: &str;
+    if is_regular_can_be_used(&operations, path_regular) {
+        path = path_regular;
+    } else {
+        path = path_original;
     }
 
     let mut buffer = VectorOfuchar::new();
@@ -74,6 +84,39 @@ fn handle_image(filters: &str, path: &str, ext: &str) -> IronResult<Response> {
     }.parse::<Mime>().unwrap();
 
     Ok(Response::with((content_type, status::Ok, buffer.to_vec())))
+}
+
+fn is_regular_can_be_used(operations: &Vec<Transformation>, path_regular: &str) -> bool {
+    if Path::new(&path_regular).exists() {
+        return match rexiv2::Metadata::new_from_path(path_regular) {
+            Ok(meta) => {
+                let width = meta.get_pixel_width();
+                let height = meta.get_pixel_height();
+                let mut result = false;
+
+                for operation in operations {
+                    match operation.is_regular_can_be_used(width, height) {
+                        Cache::NOT_AFFECT => {
+                            continue;
+                        },
+                        Cache::NOT_APPLIED => {
+                            result = false;
+                            break;
+                        },
+                        Cache::APPLIED => {
+                            result = true;
+                            break;
+                        }
+                    }
+                }
+
+                result
+            },
+            Err(err) => false
+        }
+    }
+
+    return false;
 }
 
 #[derive(Debug)]
@@ -97,8 +140,17 @@ enum Transformation {
     }
 }
 
+enum Cache {
+    APPLIED,     // return if image can be based on regular
+    NOT_APPLIED, // cannot be based on regular
+    NOT_AFFECT   // has no affect for image size
+}
+
 trait TransformationTrait {
     fn apply(&self, mat: &cv::Mat) -> cv::Mat;
+
+    // Return true if regular image can be read for this transformation
+    fn is_regular_can_be_used(&self, width: i32, height: i32) -> Cache;
 }
 
 impl TransformationTrait for Transformation {
@@ -161,7 +213,7 @@ impl TransformationTrait for Transformation {
                     };
                 }
                 return cv::Mat::rect(&resized, rect).unwrap();
-            }
+            },
             Transformation::CropCoordinates { x1, y1, x2, y2 } => {
                 let rect = cv::Rect {
                     x: x1,
@@ -171,6 +223,35 @@ impl TransformationTrait for Transformation {
                 };
                 return cv::Mat::rect(&mat, rect).unwrap();
             }
+        }
+    }
+    fn is_regular_can_be_used(&self, regular_width: i32, regular_height: i32) -> Cache {
+        match *self {
+            Transformation::Resize { height, width } => {
+                let condition: bool;
+                if height.is_some() && width.is_some() {
+                    condition = regular_width >= width.unwrap() && regular_height >= height.unwrap();
+                } else if height.is_some() {
+                    condition = regular_height >= height.unwrap();
+                } else {
+                    condition = regular_width >= width.unwrap();
+                }
+
+                if condition {
+                    return Cache::APPLIED;
+                } else {
+                    return Cache::NOT_APPLIED;
+                }
+            },
+            Transformation::CropCoordinates { x1, y1, x2, y2 } => Cache::NOT_APPLIED,
+            Transformation::Crop { height, width } => {
+                if regular_width >= width && regular_height >= height {
+                    return Cache::APPLIED;
+                } else {
+                    return Cache::NOT_APPLIED;
+                }
+            },
+            Transformation::Rotate { degrees } => Cache::NOT_AFFECT
         }
     }
 }

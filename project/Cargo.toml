@@ -7,4 +7,5 @@ authors = ["Dmitriy Belyaev <dimabelyaev27@gmail.com>"]
 opencv = { git = "git://github.com/kali/opencv-rust" }
 iron = "*"
 regex = "0.1"
+rexiv2 = "0.3"
 lazy_static = "0.1.*"

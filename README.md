@@ -19,6 +19,14 @@ on-fly chains transformations on images
  - **Crop** by width and height (`crop_{width}x{height}`)
   - note: image cropped by width and height with central image alignment
 
+## Supported formats
+
+- jpg
+- jpeg
+- png
+- tif
+- tiff
+
 ## Example
 
 we have an image `photo.jpg` with below transformation chain:

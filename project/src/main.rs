@@ -25,7 +25,7 @@ lazy_static! {
 
 fn main() {
     fn handler(req: &mut Request) -> IronResult<Response> { 
-        let regex = Regex::new(r"^transform/(.+)/(.+)\.(jpg|png)$").unwrap();   
+        let regex = Regex::new(r"^transform/(.+)/(.+)\.(?i)(jpg|jpeg|png|tif|tiff)$").unwrap();
         match regex.captures(&req.url.path.join("/")) {
             Some(cap) => {
                 let ext = cap.at(3).unwrap();
@@ -58,7 +58,7 @@ fn handle_image(filters: &str, path: &str, ext: &str) -> IronResult<Response> {
     }
 
     let mut buffer = VectorOfuchar::new();
-    let mut mat = highgui::imread(path, highgui::IMREAD_COLOR).unwrap();
+    let mut mat = highgui::imread(path, highgui::IMREAD_UNCHANGED).unwrap();
 
     for operation in &operations {
         mat = operation.apply(&mat);
@@ -66,9 +66,10 @@ fn handle_image(filters: &str, path: &str, ext: &str) -> IronResult<Response> {
 
     highgui::imencode(&format!(".{}", ext), &mat, &mut buffer, &VectorOfint::new());
     
-    let content_type = match ext {
-        "jpg" => "image/jpeg",
+    let content_type = match String::from(ext).to_lowercase().as_ref() {
+        "jpg"|"jpeg" => "image/jpeg",
         "png" => "image/png",
+        "tif"|"tiff" => "image/tiff",
         _ => "text/plain"
     }.parse::<Mime>().unwrap();
 

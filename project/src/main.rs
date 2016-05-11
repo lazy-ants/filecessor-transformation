@@ -193,9 +193,13 @@ impl TransformationTrait for Transformation {
                 }
             },
             Transformation::Crop { height, width } => {
+                let original_size = mat.size().unwrap();
+                let original_proportions = (original_size.width as f32) / (original_size.height as f32);
+                let crop_proportions = (width as f32 / height as f32);
+
                 let rect: cv::Rect;
                 let resized: cv::Mat;
-                if width > height {
+                if crop_proportions > original_proportions {
                     resized = relative_resize_width(&mat, width);
                     rect = cv::Rect {
                         x: 0,

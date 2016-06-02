@@ -1,5 +1,6 @@
 extern crate rexiv2;
 extern crate regex;
+extern crate opencv;
 
 use super::transformation::*;
 use self::regex::*;
@@ -80,7 +81,7 @@ fn check_image_for_using_regular(path_regular: &str, operations: &Vec<Transforma
 
                 result
             },
-            Err(err) => false
+            Err(_) => false
         }
     }
 

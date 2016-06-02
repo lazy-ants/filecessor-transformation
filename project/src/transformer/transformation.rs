@@ -32,11 +32,12 @@ pub struct Image {
 }
 
 pub fn apply_operations(image: &Image, operations: &Vec<Transformation>) -> VectorOfuchar {
-    let first_operation = operations.remove(0);
-    let mut mat = first_operation.apply(&image.mat);
+    let mut mat = operations[0].apply(&image.mat);
 
-    for operation in operations {
-        mat = operation.apply(&mat);
+    let mut i = 1;
+    while i < operations.len() {
+        mat = operations[i].apply(&mat);
+        i += 1;
     }
 
     let mut buffer = VectorOfuchar::new();
@@ -87,7 +88,7 @@ impl Transformation {
             Transformation::Crop { height, width } => {
                 let original_size = mat.size().unwrap();
                 let original_proportions = (original_size.width as f32) / (original_size.height as f32);
-                let crop_proportions = (width as f32 / height as f32);
+                let crop_proportions = width as f32 / height as f32;
 
                 let rect: cv::Rect;
                 let resized: cv::Mat;

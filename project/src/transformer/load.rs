@@ -11,16 +11,16 @@ use std::fs::File;
 use std::hash::*;
 
 use self::hyper::Client;
-use self::hyper::header::Connection;
+use self::hyper::header;
+use iron::mime;
 
 use opencv::core::*;
 use opencv::highgui;
 
 pub fn load_image(relative_path: &str, operations: &Vec<Transformation>, original: &str, regular: &str) -> Result<Image, String> {
-    println!("{:?}", relative_path);
     let url_regex = Regex::new(r"^https?://([\da-z.-]+)").unwrap();
     match url_regex.captures(relative_path) {
-        Some(cap) => load_image_by_url(original, relative_path),
+        Some(cap) => load_cached_image_by_url(original, relative_path),
         None => {
             let regex = Regex::new(r"(.+)\.(?i)(jpe?g|png|tiff?)$").unwrap();
             
@@ -56,31 +56,52 @@ enum Cache {
     NOT_AFFECT   // has no affect for image size
 }
 
-fn load_image_by_url(original: &str, url: &str) -> Result<Image, String> {
-    let string_path = format!("{}{}.jpg", original.to_string(), hash_string(url.to_string()));
-    println!("{:?}", string_path);
+fn load_cached_image_by_url(original: &str, url: &str) -> Result<Image, String> {
+    let cached_path = format!("{}{}", original.to_string(), hash_string(url.to_string()));
+    if Path::new(&cached_path).exists() {
+        return match rexiv2::Metadata::new_from_path(&cached_path) {
+            Ok(meta) => Ok(Image {
+                ext: content_type_to_ext(meta.get_media_type().unwrap()),
+                mat: highgui::imread(&cached_path, highgui::IMREAD_UNCHANGED).unwrap()
+            }),
+            Err(_) => force_load_image_by_url(&cached_path, url)
+        }
+    }
+
+    force_load_image_by_url(&cached_path, url)
+}
+
+fn force_load_image_by_url(cached_path: &str, url: &str) -> Result<Image, String> {
     let client = Client::new();
     let mut res = client.get(url)
-        .header(Connection::close())
+        .header(header::Connection::close())
         .send().unwrap();
 
     if (res.status.is_success()) {
-        println!("Headers:\n{}", res.headers);
-
-        let mut buffer = Vec::new();
-        res.read_to_end(&mut buffer).unwrap();
-        let path = Path::new(&string_path);
-
-        return match File::create(&path) {
-            Err(_) => Err("System Error".to_string()),
-            Ok(mut file) => match file.write_all(&buffer) {
-                Err(_) => Err("System Error".to_string()),
-                Ok(_) => Ok(Image {
-                    ext: "jpg".to_string(),
-                    mat: highgui::imread(&string_path, highgui::IMREAD_UNCHANGED).unwrap()
-                }),
-            }
+        let valid_response = match *res.headers.get::<header::ContentType>().unwrap() {
+            header::ContentType(mime::Mime(mime::TopLevel::Image, _, _)) => true,
+            _ => false
         };
+
+        if valid_response {
+            let mut buffer = Vec::new();
+            res.read_to_end(&mut buffer).unwrap();
+            let path = Path::new(&cached_path);
+
+            return match File::create(&path) {
+                Err(_) => Err("System Error".to_string()),
+                Ok(mut file) => match file.write_all(&buffer) {
+                    Err(_) => Err("System Error".to_string()),
+                    Ok(_) => {
+                        let meta = rexiv2::Metadata::new_from_path(&cached_path).unwrap();
+                        let ext = content_type_to_ext(meta.get_media_type().unwrap());
+
+                        create_image(cached_path, &ext)
+                    },
+                }
+            };
+        }
+        
     }
     
     Err("Invalid image link".to_string())

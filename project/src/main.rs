@@ -22,7 +22,7 @@ lazy_static! {
 
 fn main() {
     fn handler(req: &mut Request) -> IronResult<Response> { 
-        let regex = Regex::new(r"^transform/(.+)/(.+)").unwrap();
+        let regex = Regex::new(r"^transform/([^\\/]+)/(.+)").unwrap();
         match regex.captures(&req.url.path.join("/")) {
             Some(cap) => {
                 match matchers::create_operations(cap.at(1).unwrap()) {

@@ -4,7 +4,7 @@ on-fly chains transformations on images
 
 ## Transformation
 
-- To perform transformation on photo make request `/transform/{filter}/{filename}`
+- To perform transformation on photo make request `/transform/{filter}/{filename_or_url}`
 - Filter can be list of transformation divided by `+` sign like that `{filter1}+{filter2}+...`. 
 - List is ordered (filters will be apply in such order it received).
 
@@ -35,6 +35,10 @@ we have an image `photo.jpg` with below transformation chain:
 - rotate to 180 degrees
 
 `http://filecessor.com/transform/crop_coordinates_10x20_1350x1360+resize_-x300+rotate_180/photo.jpg`
+
+if photo is located on external resource you can use:
+
+`http://filecessor.com/transform/crop_coordinates_10x20_1350x1360+resize_-x300+rotate_180/http://external_resource.com/photo.jpg`
 
 ## Api
 

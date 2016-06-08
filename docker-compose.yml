@@ -1,16 +1,9 @@
-application:
-    image: debian:jessie
-    volumes: 
-        - ./project:/var/www/transformer
-    tty: true
 nginx:
     build: docker/nginx
     ports:
         - 8000:80
     links:
         - transformer
-    volumes_from:
-        - application
 transformer:
     image: lazyants/filecessor-transformation
     volumes:

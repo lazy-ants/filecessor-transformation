@@ -1,6 +1,8 @@
-# Filecessor Transformation
+# Filecessor image Transformation
 The part of Filercessor system, is the docker image (container) used to perform 
 on-fly chains transformations on images
+
+[Try it](http://filecessor.com/transform/resize_400x-+rotate_90/http://dreamatico.com/data_images/babies/babies-1.jpg)
 
 ## Transformation
 
@@ -27,6 +29,13 @@ on-fly chains transformations on images
 - tif
 - tiff
 
+## Geting start your own instance with Docker
+
+- install [Docker](http://docker.com) and [Docker Compose](https://docs.docker.com/compose/)
+- `git clone` this repo to `somewhere/transformation`
+- run containers with `docker-composer up -d`
+- open in browser `http://localhost/transform/resize_400x-+rotate_90/http://dreamatico.com/data_images/babies/babies-1.jpg`
+
 ## Example
 
 we have an image `photo.jpg` with below transformation chain:
@@ -36,7 +45,7 @@ we have an image `photo.jpg` with below transformation chain:
 
 `http://filecessor.com/transform/crop_coordinates_10x20_1350x1360+resize_-x300+rotate_180/photo.jpg`
 
-if photo is located on external resource you can use:
+Transform Photo from by Url:
 
 `http://filecessor.com/transform/crop_coordinates_10x20_1350x1360+resize_-x300+rotate_180/http://external_resource.com/photo.jpg`
 

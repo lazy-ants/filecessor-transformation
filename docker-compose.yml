@@ -1,0 +1,10 @@
+nginx:
+    build: docker/nginx
+    ports:
+        - 8000:80
+    links:
+        - transformer
+transformer:
+    image: lazyants/filecessor-transformation
+    volumes:
+        - ./media:/media

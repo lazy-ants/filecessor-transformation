@@ -2,7 +2,7 @@
 The part of Filercessor system, is the docker image (container) used to perform 
 on-fly chains transformations on images
 
-[Try it](http://filecessor.com/transform/resize_400x-+rotate_90/http://dreamatico.com/data_images/babies/babies-1.jpg)
+### [Try it](http://filecessor.com/transform/resize_400x-+rotate_90/http://dreamatico.com/data_images/babies/babies-1.jpg)
 
 ## Transformation
 
@@ -34,7 +34,7 @@ on-fly chains transformations on images
 - install [Docker](http://docker.com) and [Docker Compose](https://docs.docker.com/compose/)
 - `git clone` this repo to `somewhere/transformation`
 - run containers with `docker-composer up -d`
-- open in browser `http://localhost/transform/resize_400x-+rotate_90/http://dreamatico.com/data_images/babies/babies-1.jpg`
+- open in browser [http://localhost:8000/transform/resize_400x-+rotate_90/http://dreamatico.com/data_images/babies/babies-1.jpg](http://localhost:8000/transform/resize_400x-+rotate_90/http://dreamatico.com/data_images/babies/babies-1.jpg)
 
 ## Example
 
@@ -56,7 +56,7 @@ Transform Photo from by Url:
 ## Contributing
 
 Filecessor is an open source project. If you find bugs or have proposal please create [issue](https://github.com/lazy-ants/filecessor/issues) or Pull Request
-    
+
 ## License
 
 All what you can find at this repo shared under the MIT License

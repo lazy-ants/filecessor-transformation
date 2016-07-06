@@ -2,7 +2,11 @@
 The part of Filercessor system, is the docker image (container) used to perform 
 on-fly chains transformations on images
 
-### [Try it](http://filecessor.com/transform/resize_400x-+rotate_90/http://dreamatico.com/data_images/babies/babies-1.jpg)
+### Try it
+
+[Resize and rotate](http://filecessor.com/transform/resize_400x-+rotate_90/http://dreamatico.com/data_images/babies/babies-1.jpg) | [Make Avatar](http://fc.lazy-ants.com/transform/resize_200x-+crop_coordinates_85x0_185x100/577ce935e4b0c43f87048633.jpg)
+--------|-------
+![Resize and rotate](http://filecessor.com/transform/resize_200x-+rotate_90/http://dreamatico.com/data_images/babies/babies-1.jpg) | ![Avatar](http://filecessor.com/transform/resize_200x-+crop_coordinates_85x0_185x100/http://dreamatico.com/data_images/babies/babies-1.jpg)
 
 ## Transformation
 
